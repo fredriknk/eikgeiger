@@ -56,6 +56,7 @@
         }
       ],
       "drc_exclusions": [
+        "track_dangling|169300000|98806000|292b366a-201c-4f5e-a47e-d7ad56fdf6e4|00000000-0000-0000-0000-000000000000",
         "track_dangling|169300000|98806000|4fd18b19-ea93-4717-a85c-711c1546a460|00000000-0000-0000-0000-000000000000",
         "track_dangling|169300000|98806000|9bff2f09-ef6f-4e76-b529-e8ee73ff0aa5|00000000-0000-0000-0000-000000000000"
       ],
@@ -390,7 +391,7 @@
       "idf": "",
       "netlist": "",
       "specctra_dsn": "",
-      "step": "",
+      "step": "../3D_MODEL/opengeiger_ROUND.step",
       "vrml": ""
     },
     "page_layout_descr_file": ""

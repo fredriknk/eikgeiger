@@ -356,7 +356,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "opengeiger.kicad_pro",
+    "filename": "opengeiger_ROUND.kicad_pro",
     "version": 1
   },
   "net_settings": {
@@ -390,7 +390,7 @@
       "idf": "",
       "netlist": "",
       "specctra_dsn": "",
-      "step": "",
+      "step": "../3D_MODEL/opengeiger_ROUND.step",
       "vrml": ""
     },
     "page_layout_descr_file": ""
