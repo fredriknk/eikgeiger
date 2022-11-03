@@ -4,6 +4,13 @@
 
   (paper "A4")
 
+  (title_block
+    (title "Main Schematic")
+    (date "2022-11-03")
+    (rev "V.0.1.0")
+    (company "EIK IDEVERKSTED OPENGEIGER")
+  )
+
   (lib_symbols
     (symbol "Connector:USB_C_Receptacle_USB2.0" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
       (property "Reference" "J" (id 0) (at -10.16 19.05 0)
@@ -1766,8 +1773,8 @@
   )
 
   (no_connect (at 53.34 40.64) (uuid 2e29bad1-bbe5-4090-b94b-56f9cb81f401))
-  (no_connect (at 53.34 45.72) (uuid 2e29bad1-bbe5-4090-b94b-56f9cb81f401))
-  (no_connect (at 53.34 48.26) (uuid 2e29bad1-bbe5-4090-b94b-56f9cb81f401))
+  (no_connect (at 53.34 45.72) (uuid 2e29bad1-bbe5-4090-b94b-56f9cb81f402))
+  (no_connect (at 53.34 48.26) (uuid 2e29bad1-bbe5-4090-b94b-56f9cb81f403))
   (no_connect (at 22.86 68.58) (uuid 4c7689e0-31d0-492b-8425-4eae3dec617e))
   (no_connect (at 22.86 55.88) (uuid 4c7689e0-31d0-492b-8425-4eae3dec6181))
   (no_connect (at 22.86 58.42) (uuid 4c7689e0-31d0-492b-8425-4eae3dec6182))
