@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
-#define BUF_VOLT 30
+#define BUF_VOLT 10
+#define BUF_VOLT_LONG 200
 #define BUF_CLICK 60
 #define BUF_CLICK_HOUR 60
 
@@ -16,12 +17,20 @@ unsigned long buf_click_hour[BUF_CLICK]  = {0};
 int           buf_click_hour_index       =  0;
 float         buf_click_hour_avg         =  0.0;
 
+bool ss_flag = false;
+
 unsigned long runtime_ = 0;
 unsigned long runtime = 0;
 
 //PID variables:
 double I=0, I_=0, p=0, p_=0, setpoint=0, input=0, dp=0, output=0;
+double Kp = 1., Ki = 3.0, Kd = 0.00;
+double pid = 0;
 
+//Filter:
+float x[] = {0,0,0};
+float y[] = {0,0,0};
+int raw_read = 0;
 
 uint32_t Freq;
 int LED_0= 0; 
@@ -41,6 +50,7 @@ volatile unsigned long ticks = micros();
 volatile unsigned long ticks_old = ticks-10;
 volatile unsigned long ticks_dt = 0;
 
+unsigned long duration = millis();
 
 int TIMEDELAY= 10;
 int pwm_int = 340;
@@ -65,40 +75,6 @@ void IRAM_ATTR ISR() {
     ticks = micros();
     clicks++;
     ticks_dt = ticks-ticks_old;
-}
-
-void setup() {
-  Serial.begin(115200);
-
-  analogSetWidth(11);
-  analogSetAttenuation(ADC_11db);
-
-  pinMode (Pulsepin, INPUT);
-  
-  pinMode (LED_0, OUTPUT);
-  pinMode (LED_1, OUTPUT);
-  pinMode (LED_2, OUTPUT);
-  pinMode (LED_3, OUTPUT);
-  pinMode (LED_4, OUTPUT);
-
-  digitalWrite(LED_0, HIGH);
-  digitalWrite(LED_1, HIGH);
-  digitalWrite(LED_2, HIGH);
-  digitalWrite(LED_3, HIGH);
-  digitalWrite(LED_4, HIGH);
-
-  ledcAttachPin(BUCK_PIN, BUCK_PWM);
-  ledcAttachPin(CLICKER, CLICKER_PWM);
-
-  attachInterrupt(Pulsepin, ISR, FALLING);
-
-  //ledcSetup(CLICKER_PWM, 4000, 8);
-  ledcSetup(BUCK_PWM, 1000, 12);
-
-  ledcSetup(CLICKER_PWM, 6000, 8);
-  
-  ledcWrite(CLICKER_PWM, 0);
-  ledcWrite(BUCK_PWM, pwm_int);
 }
 
 float array_calculate_avg(int * buf, int len){
@@ -140,6 +116,14 @@ float voltdivider(float volt, int r1, int r2){
   return volt*float((r1+r2)/r2);
 }
 
+int revsetpoint(float volt){
+  float r1 = 50000.;
+  float r2 = 100.;
+  volt = 1000*volt/float((r1+r2)/r2);
+  int adc = map(volt, 150, 2450, 0, 2047);
+  return adc;
+}
+
 void printbuf(unsigned int *buf, int len){
     for (int i = 0; i < len; i++){
         Serial.print(buf[i]);
@@ -148,10 +132,48 @@ void printbuf(unsigned int *buf, int len){
     Serial.println();
 }
 
+
+void setup() {
+  Serial.begin(115200);
+
+  setpoint = revsetpoint(370);
+
+  analogSetWidth(11);
+  analogSetAttenuation(ADC_11db);
+
+  pinMode (Pulsepin, INPUT);
+  
+  pinMode (LED_0, OUTPUT);
+  pinMode (LED_1, OUTPUT);
+  pinMode (LED_2, OUTPUT);
+  pinMode (LED_3, OUTPUT);
+  pinMode (LED_4, OUTPUT);
+
+  digitalWrite(LED_0, HIGH);
+  digitalWrite(LED_1, HIGH);
+  digitalWrite(LED_2, HIGH);
+  digitalWrite(LED_3, HIGH);
+  digitalWrite(LED_4, HIGH);
+
+  ledcAttachPin(BUCK_PIN, BUCK_PWM);
+  ledcAttachPin(CLICKER, CLICKER_PWM);
+
+  attachInterrupt(Pulsepin, ISR, FALLING);
+
+  //ledcSetup(CLICKER_PWM, 4000, 8);
+  ledcSetup(BUCK_PWM, 1000, 12);
+
+  ledcSetup(CLICKER_PWM, 6000, 8);
+  
+  ledcWrite(CLICKER_PWM, 0);
+  ledcWrite(BUCK_PWM, pwm_int);
+}
+
 void loop() {
   unsigned long start = micros();
 
   if(clicks > click_old){
+    duration = millis();
     //cpm = float(60e6/ticks_dt);
     click_old=clicks;
     ledcWrite(CLICKER_PWM, 60);
@@ -162,27 +184,65 @@ void loop() {
     digitalWrite(LED_4, LOW);
   }
   else {
-    ledcWrite(CLICKER_PWM, 0);
-    digitalWrite(LED_0, HIGH);
-    digitalWrite(LED_1, HIGH);
-    digitalWrite(LED_2, HIGH);
-    digitalWrite(LED_3, HIGH);
-    digitalWrite(LED_4, HIGH);
+    if(millis()-duration > 10){
+      ledcWrite(CLICKER_PWM, 0);
+      digitalWrite(LED_0, HIGH);
+      digitalWrite(LED_1, HIGH);
+      digitalWrite(LED_2, HIGH);
+      digitalWrite(LED_3, HIGH);
+      digitalWrite(LED_4, HIGH);
+    }
   }
 
   if (Serial.available()!=0){
-    pwm_int=Serial.parseInt();
-    Serial.parseInt();
-  }
+    char inchar = ' ';
+    double serial_input;
 
-  potValue = analogRead(REFpin);
-  if (BUF_VOLT == buf_volt_index){
-      buf_volt_index = 0;
+    inchar = Serial.read();
+
+    switch (inchar){
+        case 'p':
+          serial_input= Serial.parseFloat();
+          Kp=serial_input;
+          break;
+        case 'i':
+          serial_input= Serial.parseFloat();
+          I=0;
+          Ki=serial_input;
+          break;
+        case 'd':
+          serial_input= Serial.parseFloat();
+          Kd=serial_input;
+          break;
+        case 's':
+          serial_input= Serial.parseFloat();
+          setpoint=revsetpoint(serial_input);
+          break;
+        case 'r':
+          Ki=0;
+          Kd=0;
+          Kp=0;
+          setpoint=400.0;
+          break;
+        case 'k':
+          Serial.print("Kp:");
+          Serial.print(Kp);
+          Serial.print(" Ki:");
+          Serial.print(Ki);
+          Serial.print(" Kd:");
+          Serial.print(Kd);
+          Serial.print(" setpoint:");
+          Serial.print(setpoint);
+          Serial.println();
+          break;
+    }
+
+
+
   }
-  buf_volt[buf_volt_index++] = potValue;
 
   now = millis();
-  if(millis()-last > 1000 ){ //do this every second
+  if(now-last > 1000 ){ //do this every second
     last = now;
 
     if (BUF_CLICK == buf_click_index){
@@ -198,72 +258,85 @@ void loop() {
   }
 
   now_2 = millis();
-  if(millis()-last_2 > 10 ){ //Do this every 100 ms
+
+  if(now_2-last_2 > 1000 ){ //Do this every 1000 ms
     last_2 = now_2;
     buf_volt_avg = array_calculate_avg(buf_volt, BUF_VOLT);
     float buf_cpm_avg_min = array_minmax_avg(buf_click, BUF_CLICK);
     float buf_cpm_avg_hour = array_minmax_avg(buf_click_hour, BUF_CLICK)/60.;
-    /*Serial.print(voltdivider(adc2volt(buf_volt_avg),50100,100));
-    Serial.print("\t");
-    Serial.print(float((60*1e6)/ticks_dt),2);
-    Serial.print("\t");
-    Serial.print(buf_cpm_avg_hour,2);
-    Serial.print("\t");
-    Serial.print(buf_cpm_avg_min,2);
-    Serial.print("\t");
-    Serial.print(buf_cpm_avg_min*1000./(100*1320.),6);// usivert/hour
-    Serial.print("\t");
-    Serial.print(pwm_int);
-    Serial.print("\t");
-    Serial.print(clicks);
-    Serial.print("\t");
-    Serial.print(float(clicks/float((now-first)/60000.)));
-    Serial.print("\t");
-    Serial.print(float((now-first)/60000.));
-    Serial.print("\t");
-    Serial.print(ticks_dt%8);
-    Serial.print("\t");
-    Serial.print(runtime_);
-    Serial.print("\t");
-    Serial.print(runtime);
-    Serial.print("\t");
-    Serial.print(micros()-start);
-    Serial.println();*/
-    Serial.print(input);
-    Serial.print("\t");
-    Serial.print(p);
-    Serial.print("\t");
-    Serial.print(I);
-    Serial.print("\t");
-    Serial.print(dp);
-    Serial.print("\t");
-    Serial.print(output);
+
+    Serial.print("volt:");
+    Serial.print( voltdivider(adc2volt(input),50000,100));
+    Serial.print(" set_volt:");
+    Serial.print( voltdivider(adc2volt(setpoint),50000,100));
+    Serial.print(" cpmM:");
+    Serial.print(buf_cpm_avg_min);
+    Serial.print(" cpmH:");
+    Serial.print(buf_cpm_avg_hour);
+    Serial.print(" cpm:");
+    Serial.print( float(60/float(ticks_dt/1e6)));
     Serial.println();
+
+
   }
 
   //PID LOOP
   now_3 = micros();
 
-  if(now_3-last_3 > 2000 ){ //Do this every 2 ms
-    input = array_calculate_avg(buf_volt, BUF_VOLT);
-    setpoint = double(pwm_int);
+  if(now_3-last_3 > 10000 ){ //Do this every 10 ms
 
-    float dt = now_3-last_3;
+    raw_read = analogRead(REFpin);
+    /*x[0] = raw_read;
+
+    float b[] = {0.01978958266381914, 0.03957916532763783, 0.019789582663819694};
+    float a[] = {1.564503986101199, -0.6436623167564756};
+
+    y[0] = a[0]*y[1] + a[1]*y[2] +
+               b[0]*x[0] + b[1]*x[1] + b[2]*x[2];
+    
+    for(int i = 1; i >= 0; i--){
+      x[i+1] = x[i]; // store xi
+      y[i+1] = y[i]; // store yi
+    }*/
+
+    double dt = (now_3-last_3)/1e6;
     last_3 = now_3;
-    double Kp = 0., Ki = 0.0, Kd = 0.;
+
+    input = raw_read;// y[0];
 
     p_ = p;
     
     p=setpoint-input;
 
     dp = double((p-p_)/dt);
-    
-    I_ = I;
+
+    I_= I;
     I = I + dt*((p+p_)/2.);
-    
+
+    if ( I < 0){
+      I = I_;
+    }
+
+    if ( abs(I)*Ki > 3000){
+      I = I_;
+    }
+    double output_ = output;
     output = p*Kp+I*Ki+dp*Kd;
 
-    ledcWrite(BUCK_PWM, 0);
+    if ( output < 0){
+      output = 0;
+    }
+
+    if ( output > 1500){
+      output = 1500;
+      ss_flag = true;
+    }
+
+    else{
+      ss_flag = false;
+    }
+
+    ledcWrite(BUCK_PWM, int(output));
   }
   
   runtime_ = runtime;
