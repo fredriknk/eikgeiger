@@ -8,8 +8,7 @@ C7,C_0603_1608Metric_Pad1.08x0.95mm_HandSolder,1,330pF,CC0603KRX7R9BB331
 "FID1, FID2, FID3",Fiducial_1mm_Mask2mm,3,Fiducial,
 G1,SBM-20,1,GM_tube_HOLDERS,
 "H1, H3",MountingHole_2.5mm_Pad_Via,2,MountingHole_Pad,
-H2,MountingHole_2.5mm,1,MountingHole_Pad,
-H4,MountingHole_2.7mm,1,MountingHole_Pad,
+"H2, H4",MountingHole_2.5mm,2,MountingHole_Pad,
 "J1, J10, J5",PinHeader_1x04_P2.54mm_Vertical,3,Conn_01x04,61300411121
 J3,PinHeader_1x06_P2.54mm_Vertical,1,Conn_01x06,61300611121
 J8,USB_C_Receptacle_HRO_TYPE-C-31-M-12,1,USB_C_Receptacle_USB2.0,CONN RCP USB2.0 TYP C 24P SMD RA

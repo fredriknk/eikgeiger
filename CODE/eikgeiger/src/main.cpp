@@ -1,6 +1,5 @@
 #include <Arduino.h>
-
-#define BUF_VOLT 10
+#define BUF_VOLT 100
 #define BUF_VOLT_LONG 200
 #define BUF_CLICK 60
 #define BUF_CLICK_HOUR 60
@@ -18,13 +17,14 @@ int           buf_click_hour_index       =  0;
 float         buf_click_hour_avg         =  0.0;
 
 bool ss_flag = false;
+bool enable_psup = true;
 
 unsigned long runtime_ = 0;
 unsigned long runtime = 0;
 
 //PID variables:
 double I=0, I_=0, p=0, p_=0, setpoint=0, input=0, dp=0, output=0;
-double Kp = 1., Ki = 3.0, Kd = 0.00;
+double Kp = 1., Ki = 2.0, Kd = 0.00;
 double pid = 0;
 
 //Filter:
@@ -38,7 +38,7 @@ int LED_1= 2;
 int LED_2= 13;
 int LED_3= 15;
 int LED_4= 4;
-int CLICKER = 35; //Speaker element
+int CLICKER = 32; //Speaker element
 const int REFpin = 25; //ADC Input
 const int Pulsepin = 23; //Geiger pulse input
 float cpm = 0;
@@ -65,6 +65,9 @@ unsigned long now_2 = last_2+1;
 
 unsigned long last_3 = micros();
 unsigned long now_3 = last_3+1;
+
+unsigned long last_4 = micros();
+unsigned long now_4 = last_4+1;
 
 int BUCK_PWM = 0;
 int CLICKER_PWM = 12;
@@ -160,23 +163,28 @@ void setup() {
 
   attachInterrupt(Pulsepin, ISR, FALLING);
 
-  //ledcSetup(CLICKER_PWM, 4000, 8);
   ledcSetup(BUCK_PWM, 1000, 12);
 
   ledcSetup(CLICKER_PWM, 6000, 8);
   
-  ledcWrite(CLICKER_PWM, 0);
+  //ledcWrite(CLICKER_PWM, 0);
   ledcWrite(BUCK_PWM, pwm_int);
+
+  //Deep sleep
+  esp_sleep_enable_timer_wakeup(5 * 1e6);
 }
 
 void loop() {
+  delay(1);
   unsigned long start = micros();
+  
+  //Clicker logic
 
   if(clicks > click_old){
     duration = millis();
     //cpm = float(60e6/ticks_dt);
     click_old=clicks;
-    ledcWrite(CLICKER_PWM, 60);
+    ledcWrite(CLICKER_PWM, 10);
     digitalWrite(LED_0, LOW);
     digitalWrite(LED_1, LOW);
     digitalWrite(LED_2, LOW);
@@ -184,7 +192,7 @@ void loop() {
     digitalWrite(LED_4, LOW);
   }
   else {
-    if(millis()-duration > 10){
+    if(millis()-duration > 3){
       ledcWrite(CLICKER_PWM, 0);
       digitalWrite(LED_0, HIGH);
       digitalWrite(LED_1, HIGH);
@@ -235,12 +243,18 @@ void loop() {
           Serial.print(setpoint);
           Serial.println();
           break;
+        case 'o':
+          output = 0;
+          I=0;
+          ledcWrite(BUCK_PWM,0);
+          enable_psup = Serial.parseInt();
+          break;
     }
 
 
 
   }
-
+  //COUNTER LOOP
   now = millis();
   if(now-last > 1000 ){ //do this every second
     last = now;
@@ -256,19 +270,23 @@ void loop() {
 
     buf_click[buf_click_index++] = clicks;
   }
+  
+  //SERIAL LOOP
+  now_4 = millis();
+  if(now_4-last_4 > 1000 ){ //do this every second
+    last_4 = now_4;
 
-  now_2 = millis();
-
-  if(now_2-last_2 > 1000 ){ //Do this every 1000 ms
-    last_2 = now_2;
     buf_volt_avg = array_calculate_avg(buf_volt, BUF_VOLT);
     float buf_cpm_avg_min = array_minmax_avg(buf_click, BUF_CLICK);
     float buf_cpm_avg_hour = array_minmax_avg(buf_click_hour, BUF_CLICK)/60.;
-
-    Serial.print("volt:");
+    Serial.print("raw_volt:");
+    Serial.print( voltdivider(adc2volt(analogRead(REFpin)),50000,100));
+    Serial.print(" volt:");
     Serial.print( voltdivider(adc2volt(input),50000,100));
     Serial.print(" set_volt:");
     Serial.print( voltdivider(adc2volt(setpoint),50000,100));
+    Serial.print(" output");
+    Serial.print(output);
     Serial.print(" cpmM:");
     Serial.print(buf_cpm_avg_min);
     Serial.print(" cpmH:");
@@ -276,34 +294,42 @@ void loop() {
     Serial.print(" cpm:");
     Serial.print( float(60/float(ticks_dt/1e6)));
     Serial.println();
-
-
   }
-
-  //PID LOOP
-  now_3 = micros();
-
-  if(now_3-last_3 > 10000 ){ //Do this every 10 ms
-
+  
+  //ADC LOOP
+  now_2 = micros();
+  if(now_2-last_2 > 1000 && enable_psup){ //Do this every 10 000 us
+    last_2 = now_2;
     raw_read = analogRead(REFpin);
-    /*x[0] = raw_read;
+    
+    x[0] = raw_read;
 
-    float b[] = {0.01978958266381914, 0.03957916532763783, 0.019789582663819694};
-    float a[] = {1.564503986101199, -0.6436623167564756};
+    float b[] = {0.06396438485558797, 0.12792876971117606, 0.06396438485558781};
+    float a[] = {1.1682606671932643, -0.4241182066156163};
 
     y[0] = a[0]*y[1] + a[1]*y[2] +
-               b[0]*x[0] + b[1]*x[1] + b[2]*x[2];
+           b[0]*x[0] + b[1]*x[1] + b[2]*x[2];
     
     for(int i = 1; i >= 0; i--){
       x[i+1] = x[i]; // store xi
       y[i+1] = y[i]; // store yi
-    }*/
+    }
+
+    if (BUF_VOLT == buf_volt_index){
+      buf_volt_index = 0;
+    }
+
+    buf_volt[buf_volt_index++] = y[0];
+  }
+  
+  //PID LOOP
+  now_3 = micros();
+  if(now_3-last_3 > 100000 && enable_psup){ //Do this every 10 ms
 
     double dt = (now_3-last_3)/1e6;
     last_3 = now_3;
 
-    input = raw_read;// y[0];
-
+    input = array_calculate_avg(buf_volt, BUF_VOLT);
     p_ = p;
     
     p=setpoint-input;
