@@ -1,4 +1,9 @@
 #include <Arduino.h>
+#include <DNSServer.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include "ESPAsyncWebServer.h"
+
 #define BUF_VOLT 100
 #define BUF_VOLT_LONG 200
 #define BUF_CLICK 60
@@ -39,7 +44,7 @@ int LED_2= 13;
 int LED_3= 15;
 int LED_4= 4;
 int CLICKER = 32; //Speaker element
-const int REFpin = 25; //ADC Input
+const int REFpin = 39; //ADC Input
 const int Pulsepin = 23; //Geiger pulse input
 float cpm = 0;
 int BUCK_PIN= 12; 
@@ -71,6 +76,9 @@ unsigned long now_4 = last_4+1;
 
 int BUCK_PWM = 0;
 int CLICKER_PWM = 12;
+
+DNSServer dnsServer;
+AsyncWebServer server(80);
 
 
 void IRAM_ATTR ISR() {
@@ -136,6 +144,30 @@ void printbuf(unsigned int *buf, int len){
 }
 
 
+class CaptiveRequestHandler : public AsyncWebHandler {
+public:
+  CaptiveRequestHandler() {}
+  virtual ~CaptiveRequestHandler() {}
+
+  bool canHandle(AsyncWebServerRequest *request){
+    //request->addInterestingHeader("ANY");
+    return true;
+  }
+
+  void handleRequest(AsyncWebServerRequest *request) {
+    AsyncResponseStream *response = request->beginResponseStream("text/html");
+    response->print("<!DOCTYPE html><html><head><title>EIKGEIGER WIFI LOGIN</title></head><body>");
+    response->printf("<p>Geigertelleren er aktiv, den er innstilt til %.2f volt</p>",voltdivider(adc2volt(input),50000,100));
+    response->print( "<p>Hvis du vil endre spenning brukes seriellport gjennom PC.</p>");
+    response->printf("<p>Gjennomsnittlig CPM siste minutt er  %.2f klikk per minutt</p>", array_minmax_avg(buf_click, BUF_CLICK));
+    response->print( "<p>Vennligst velg hvilket wifi du vil koble deg til, og skriv inn passord passord.</p>");
+    response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
+    response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
+    response->print( "</body></html>");
+    request->send(response);
+  }
+};
+
 void setup() {
   Serial.begin(115200);
 
@@ -145,7 +177,7 @@ void setup() {
   analogSetAttenuation(ADC_11db);
 
   pinMode (Pulsepin, INPUT);
-  
+  pinMode (25, INPUT);
   pinMode (LED_0, OUTPUT);
   pinMode (LED_1, OUTPUT);
   pinMode (LED_2, OUTPUT);
@@ -172,6 +204,12 @@ void setup() {
 
   //Deep sleep
   esp_sleep_enable_timer_wakeup(5 * 1e6);
+
+  WiFi.softAP("esp-captive");
+  dnsServer.start(53, "*", WiFi.softAPIP());
+  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
+  //more handlers...
+  server.begin();
 }
 
 void loop() {
@@ -367,4 +405,6 @@ void loop() {
   
   runtime_ = runtime;
   runtime =  micros()-start;
+
+  dnsServer.processNextRequest();
 }
