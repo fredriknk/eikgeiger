@@ -24,6 +24,8 @@ float         buf_click_hour_avg         =  0.0;
 
 uint setpoint=340;
 
+
+
 uint32_t Freq;
 int LED_0= 0; 
 int LED_1= 2;
@@ -57,6 +59,15 @@ unsigned long now_2 = last_2+1;
 int BUCK_PWM = 0;
 int CLICKER_PWM = 12;
 bool click_sound = false;
+
+//server
+int statusCode;
+const char* ssid = "Default SSID";
+const char* passphrase = "Default passord";
+String st;
+String content;
+String esid;
+String epass = "";
 
 DNSServer dnsServer;
 AsyncWebServer server(80);
@@ -142,6 +153,46 @@ void printbuf(unsigned int *buf, int len){
     Serial.println();
 }
 
+void scanwifi(){
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+  int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n == 0)
+    Serial.println("no networks found");
+  else
+  {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i)
+    {
+      // Print SSID and RSSI for each network found
+      Serial.print(i + 1);
+      Serial.print(": ");
+      Serial.print(WiFi.SSID(i));
+      Serial.print(" (");
+      Serial.print(WiFi.RSSI(i));
+      Serial.print(")");
+      //Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*");
+      delay(10);
+    }
+  }
+  Serial.println("");
+  st = "<ol>";
+  for (int i = 0; i < n; ++i)
+  {
+    // Print SSID and RSSI for each network found
+    st += "<li>";
+    st += WiFi.SSID(i);
+    st += " (";
+    st += WiFi.RSSI(i);
+    st += ")";
+    //st += (WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*";
+    st += "</li>";
+  }
+  st += "</ol>";
+}
 
 class CaptiveRequestHandler : public AsyncWebHandler {
 public:
@@ -164,14 +215,28 @@ public:
     response->print( "<p>Vennligst velg hvilket wifi du vil koble deg til, og skriv inn passord</p>");
     response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
     response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
+    response->print( st );
     response->print( "<form action='/' method='POST'>"
-                     "<p><label for='ssid'>SSID</label><input type='text' id ='ssid' name='ssid'><br><label for='pass'>Password</label><input type='text' id ='pass' name='pass'><br><label for='ip'>IP Address</label><input type='text' id ='ip' name='ip' value='192.168.1.200'><br><label for='gateway'>Gateway Address</label><input type='text' id ='gateway' name='gateway' value='192.168.1.1'><br><input type ='submit' value ='Submit'></p></form>");
+                     "<p><label for='ssid'>SSID, write name or number for found wifi</label>"
+                     "<input type='text' id ='ssid' name='ssid'>"
+
+                     "<br><label for='pass'>Password \t\t</label>"
+                     "<input type='text' id ='pass' name='pass'>"
+
+                     "<br><label for='ip'>IP Address (Leave blank for DHCP) </label>"
+                     "<input type='text' id ='ip' name='ip' value=''>"
+
+                     "<br><label for='gateway'>Gateway Address (leave blank for auto)</label>"
+                     "<input type='text' id ='gateway' name='gateway' value=''><br>"
+
+                     "<input type ='submit' value ='Submit'></p></form>");
     response->print( "</body></html>");
     request->send(response);
   }
 };
 
 void ap_init(){
+  scanwifi();
   WiFi.softAP("esp-captive");
   dnsServer.start(53, "*", WiFi.softAPIP());
   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
@@ -213,6 +278,8 @@ void setup() {
   
   //ledcWrite(CLICKER_PWM, 0);
   ledcWrite(BUCK_PWM, setpoint);
+
+
   ap_init();
 }
 
