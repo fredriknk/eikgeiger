@@ -56,6 +56,7 @@ unsigned long last_2 = now+1;
 unsigned long now_2 = last_2+1;
 int BUCK_PWM = 0;
 int CLICKER_PWM = 12;
+bool click_sound = false;
 
 DNSServer dnsServer;
 AsyncWebServer server(80);
@@ -163,10 +164,23 @@ public:
     response->print( "<p>Vennligst velg hvilket wifi du vil koble deg til, og skriv inn passord</p>");
     response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
     response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
+    response->print( "<form action='/' method='POST'>"
+                     "<p><label for='ssid'>SSID</label><input type='text' id ='ssid' name='ssid'><br><label for='pass'>Password</label><input type='text' id ='pass' name='pass'><br><label for='ip'>IP Address</label><input type='text' id ='ip' name='ip' value='192.168.1.200'><br><label for='gateway'>Gateway Address</label><input type='text' id ='gateway' name='gateway' value='192.168.1.1'><br><input type ='submit' value ='Submit'></p></form>");
     response->print( "</body></html>");
     request->send(response);
   }
 };
+
+void ap_init(){
+  WiFi.softAP("esp-captive");
+  dnsServer.start(53, "*", WiFi.softAPIP());
+  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
+  //more handlers...
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(myIP);
+  server.begin();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -199,15 +213,7 @@ void setup() {
   
   //ledcWrite(CLICKER_PWM, 0);
   ledcWrite(BUCK_PWM, setpoint);
-
-  //Deep sleep
-  esp_sleep_enable_timer_wakeup(5 * 1e6);
-
-  WiFi.softAP("esp-captive");
-  dnsServer.start(53, "*", WiFi.softAPIP());
-  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
-  //more handlers...
-  server.begin();
+  ap_init();
 }
 
 void loop() {
@@ -218,8 +224,9 @@ void loop() {
   if(clicks > click_old){
     duration = millis();
     //cpm = float(60e6/ticks_dt);
+    
     click_old=clicks;
-    ledcWrite(CLICKER_PWM, 80);
+    if (click_sound){ledcWrite(CLICKER_PWM, 80);}
     digitalWrite(LED_0, LOW);
     digitalWrite(LED_1, LOW);
     digitalWrite(LED_2, LOW);
@@ -228,7 +235,7 @@ void loop() {
   }
   else {
     if(millis()-duration > 3){
-      ledcWrite(CLICKER_PWM, 0);
+      if (click_sound){ledcWrite(CLICKER_PWM, 0);};
       digitalWrite(LED_0, HIGH);
       digitalWrite(LED_1, HIGH);
       digitalWrite(LED_2, HIGH);
