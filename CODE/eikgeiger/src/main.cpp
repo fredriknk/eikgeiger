@@ -78,9 +78,9 @@ struct data_layout
   char id[16];
   char ssid[128];
   char pwd[128];
-  char ip[128];
+  byte ip[4];
   bool first_run;
-  int number1;
+  int setpoint;
   byte number2;
   byte number3;
   byte number4;
@@ -206,28 +206,34 @@ public:
 
   void handleRequest(AsyncWebServerRequest *request) {
     AsyncResponseStream *response = request->beginResponseStream("text/html");
-    response->print("<!DOCTYPE html><html><head><title>EIKGEIGER WIFI LOGIN</title></head><body>");
-    response->print( "<h1>EIKGEIGER</h1>");
+    response->print("<!DOCTYPE html><html><head><title>EIKGEIGER CONFIG</title></head><body>");
+    response->print( "<h1>EIKGEIGER CONFIG</h1>");
     response->printf("<p>Geigertelleren er aktiv, den er innstilt til %i </p>",setpoint);
-    response->print( "<p>Hvis du vil endre spenning brukes seriellport gjennom PC.</p>");
-    response->print( "<p>Bruk kommando s### , der ### er et heltall mellom 0-2000.</p>");
+    response->print( "<p>Hvis du vil endre spenning brukes seriellport gjennom usb med buadrate på 115200.</p>");
+    response->print( "<p>Bruk kommando s### , der ### er et heltall mellom 0-2000. Start lavt og gå sakte oppover til du får CPM</p>");
     response->printf("<p>Gjennomsnittlig CPM siste minutt er  %.2f klikk per minutt</p>", array_minmax_avg(buf_click, BUF_CLICK));
     response->print( "<p>Vennligst velg hvilket wifi du vil koble deg til, og skriv inn passord</p>");
     response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
     response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
     response->print( st );
     response->print( "<form action='/' method='POST'>"
-                     "<p><label for='ssid'>SSID, write name or number for found wifi</label>"
-                     "<input type='text' id ='ssid' name='ssid'>"
+                     "<p><label for='ssid'>SSID, write name or number for found wifi</label><br>"
+                     "<input type='text' id ='ssid' name='ssid'><br><br>"
 
-                     "<br><label for='pass'>Password \t\t</label>"
-                     "<input type='text' id ='pass' name='pass'>"
+                     "<label for='pass'>Password </label><br>"
+                     "<input type='text' id ='pass' name='pass'><br><br>"
 
-                     "<br><label for='ip'>IP Address (Leave blank for DHCP) </label>"
-                     "<input type='text' id ='ip' name='ip' value=''>"
+                     "<label for='ip'>IP Address (Leave blank for DHCP) </label><br>"
+                     "<input type='text' id ='ip' name='ip' value=''><br><br>"
 
-                     "<br><label for='gateway'>Gateway Address (leave blank for auto)</label>"
-                     "<input type='text' id ='gateway' name='gateway' value=''><br>"
+                     "<label for='gateway'>Gateway Address (leave blank for auto)</label><br>"
+                     "<input type='text' id ='gateway' name='gateway' value=''><br><br>"
+
+                     "<label for='radmon_username'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
+                     "<input type='text' id ='radmon_username' name='radmon_username' value=''><br><br>"
+                    
+                     "<label for='radmon_pass'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
+                     "<input type='text' id ='radmon_pass' name='radmon_pass' value=''><br><br>"
 
                      "<input type ='submit' value ='Submit'></p></form>");
     response->print( "</body></html>");
