@@ -19,6 +19,7 @@
         "typeinfo": "cpp",
         "string_view": "cpp",
         "iosfwd": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "bitset": "cpp"
     }
 }
