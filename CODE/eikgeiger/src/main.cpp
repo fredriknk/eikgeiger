@@ -21,8 +21,30 @@
 #define CLICKER 32 //Speaker element
 #define REF_PIN 39 //ADC Input
 #define PULSEPIN 23 //Geiger pulse input
-#define FIRST_RUN_NUMBER 1065098293
+#define SERVER_IP       "192.168.0.30"
+#define AP_IP           "10.0.10.1"
+#define NTP_SERVER      "no.pool.ntp.org"
+#define LOG_PORT        8080
+#define DEVICE_HOSTNAME "EIKGEIGER-WIFI" 
 
+
+const char *HELP ="|----------------------------------------------------------------|\n"
+                  "|   Characters  |   Unit                  |   Value   | DEFAULT  |\n"
+                  "|---------------|-------------------------|-----------|----------|\n"
+                  "| VO            |  VOLT (value/4096 %)    | 0-2000    | 350      |\n"
+                  "| VF            |  FREQUENCY (hz)         | 0-18000   | 1001     |\n"
+                  "| SA            |  SAVE TO EPPROM         | 1         | -        |\n"
+                  "| RE            |  REBOOT SYSTEM          | 1         | -        |\n"
+                  "| RF            |  FACTORYRESET(FULL/PART)| 9999/1111 | -        |\n"
+                  "| BE            |  BEEPER (activation)    | 0/1       | 0        |\n"
+                  "| BD            |  BEEPER duty (val/255)  | 0-127     | 50       |\n"
+                  "| BF            |  BEEPER FREQUENCY (hz)  | 10-40000  | 6000     |\n"
+                  "| LE            |  LED (activation)       | 0/1       | 1        |\n"
+                  "| LF            |  FLASHTIME (mS)         | 1-500     | 10       |\n"
+                  "| LO            |  LOG OUTPUT(Activation) | 0/1       | 1        |\n"
+                  "| LS            |  LOG SPEED (ms/log)     | 0-10000   | 1000     |\n"
+                  "| EV            |  EVENTSPERCLICK (number)| 0-1000    | 0        |\n"
+                  "|----------------------------------------------------------------|\n";
 
 int   buf_volt[BUF_VOLT]   = {0};
 int   buf_volt_index       = 0;
@@ -68,18 +90,7 @@ DNSServer dnsServer;
 AsyncWebServer server(80);
 
 
-typedef struct 
-{ 
-  //128bit random ID
-  char ssid[23]={};
-  //Stored ssid name up to 128 chars
-  char WIFI_SSID[128]={};
-  //Stored password up to 128 chars
-  char WIFI_PASS[128]={};
-  //Stored IP
-  byte ip[4] ={0,0,0,0};
-  //Stupid check to see if eeprom is set
-  unsigned long FIRST_RUN =  FIRST_RUN_NUMBER;
+typedef struct {
   //HV PWM DUTY CYCLE config_data.BUCK_PWM_SETPOINT/4095
   uint BUCK_PWM_SETPOINT=350;
   //PWM Frequency
@@ -100,6 +111,24 @@ typedef struct
   uint LOG_SPEED = 1000;
   //Number of events per indication
   uint EVENT_DELAY = 0;
+  //MCU-chip-UID
+  char ssid[23]={};
+  //Stored ssid name up to 128 chars
+  char WIFI_SSID[128]={};
+  //Stored password up to 128 chars
+  char WIFI_PASS[128]={};
+  //Stored IP
+  byte ip[4] ={0,0,0,0};
+  //radmon_username
+  char RADMON_USER[128]={};
+  //Stored password up to 128 chars
+  char RADMON_PASS[128]={};
+  //NTP Server
+  char server_ip[30] = SERVER_IP;
+  char ap_ip[30]     = AP_IP;
+  char ntp_server[40] = NTP_SERVER;
+  int  log_port= LOG_PORT;
+  char device_hostname[64] = DEVICE_HOSTNAME;
 } Configuration;
 
 Configuration config_data;
@@ -301,235 +330,176 @@ void ap_init(){
   server.begin();
 }
 
-void setup() {
-  Serial.begin(115200);
-  EEPROM.begin(EEPROM_SIZE);
-  eepromCheck();
-
-  //ADC Setup
-  analogSetWidth(11);
-  analogSetAttenuation(ADC_11db);
-
-  pinMode (PULSEPIN, INPUT);
-  pinMode (25, INPUT);
-  pinMode (LED_0, OUTPUT);
-  pinMode (LED_1, OUTPUT);
-  pinMode (LED_2, OUTPUT);
-  pinMode (LED_3, OUTPUT);
-  pinMode (LED_4, OUTPUT);
-
-  digitalWrite(LED_0, HIGH);
-  digitalWrite(LED_1, HIGH);
-  digitalWrite(LED_2, HIGH);
-  digitalWrite(LED_3, HIGH);
-  digitalWrite(LED_4, HIGH);
-
-  ledcAttachPin(BUCK_PIN, BUCK_PWM_CHANNEL);
-  ledcAttachPin(CLICKER, CLICKER_PWM_CHANNEL);
-
-  attachInterrupt(PULSEPIN, ISR, FALLING);
-
-  ledcSetup(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_FREQ, 12);
-
-  ledcSetup(CLICKER_PWM_CHANNEL, config_data.CLICKER_FREQ, 8);
-  
-  ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
-
-
-  ap_init();
-}
-
-void loop() {
-  unsigned long start = micros();
-  
-  //Clicker logic
-  if(clicks > (click_old+config_data.EVENT_DELAY)){
-    duration = millis();
-    click_old=clicks;
-    if (config_data.CLICKER_ACTIVATE){ledcWrite(CLICKER_PWM_CHANNEL, config_data.CLICKER_DUTYCYCLE);}
-    if (config_data.LED_ACTIVATE){
-      digitalWrite(LED_0, LOW);
-      digitalWrite(LED_1, LOW);
-      digitalWrite(LED_2, LOW);
-      digitalWrite(LED_3, LOW);
-      digitalWrite(LED_4, LOW);
-    }
-  }
-  else {
-    if(millis()-duration > config_data.INDICATION_LENGTH){
-      ledcWrite(CLICKER_PWM_CHANNEL, 0);
-      digitalWrite(LED_0, HIGH);
-      digitalWrite(LED_1, HIGH);
-      digitalWrite(LED_2, HIGH);
-      digitalWrite(LED_3, HIGH);
-      digitalWrite(LED_4, HIGH);
-    }
-  }
-
+void serial_handler(){
   if (Serial.available()!=0){
     char inchar = ' ';
-    double serial_input;
+      double serial_input;
 
-    inchar = Serial.read();
-    switch (inchar){
-        case 'V':
-          inchar = Serial.read();
-          if(inchar == 'O'){
-            //PWM Duty cycle
-            serial_input= Serial.parseFloat();
-            config_data.BUCK_PWM_SETPOINT=serial_input;
-            ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
-            Serial.print("Set HV pwm duty cycle to ");
-            Serial.print(config_data.BUCK_PWM_SETPOINT);
-            Serial.print("/4096");
-            Serial.println();
-          }
-          if(inchar == 'F'){
-            //PWM Frequency
-            serial_input= Serial.parseFloat();
-            config_data.BUCK_PWM_FREQ = serial_input;
-            ledcSetup(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_FREQ, 12);
-            ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
-            Serial.print("Set HV pwm frequency to: ");
-            Serial.print(config_data.BUCK_PWM_FREQ);
-            Serial.println();
-          }
+      inchar = Serial.read();
+      switch (inchar){
+          case 'H':
+            //Help Menu
+            Serial.print(HELP);
           break;
+          case 'V':
+            inchar = Serial.read();
+            if(inchar == 'O'){
+              //PWM Duty cycle
+              serial_input= Serial.parseFloat();
+              config_data.BUCK_PWM_SETPOINT=serial_input;
+              ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
+              Serial.print("Set HV pwm duty cycle to ");
+              Serial.print(config_data.BUCK_PWM_SETPOINT);
+              Serial.print("/4096");
+              Serial.println();
+            }
+            if(inchar == 'F'){
+              //PWM Frequency
+              serial_input= Serial.parseFloat();
+              config_data.BUCK_PWM_FREQ = serial_input;
+              ledcSetup(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_FREQ, 12);
+              ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
+              Serial.print("Set HV pwm frequency to: ");
+              Serial.print(config_data.BUCK_PWM_FREQ);
+              Serial.println();
+            }
+            break;
 
-        case 'S':
-          inchar = Serial.read();
-          if(inchar == 'A'){
-            serial_input= Serial.parseFloat();
-            if (serial_input == 1){
-              Serial.println("Saving config data to eeprom!");
-              saveConfig(config_data);
+          case 'S':
+            inchar = Serial.read();
+            if(inchar == 'A'){
+              serial_input= Serial.parseFloat();
+              if (serial_input == 1){
+                Serial.println("Saving config data to eeprom!");
+                saveConfig(config_data);
+              }
+              //Save all values to eeprom
+              
             }
-            //Save all values to eeprom
-            
-          }
-          break;
+            break;
 
-        case 'R':
-          inchar = Serial.read();
-          if(inchar == 'E'){
-            //Reset device if 1
-            serial_input= Serial.parseFloat();
-            if (serial_input == 1){
-              Serial.println("Restarting ESP now!");
-              esp_restart();
+          case 'R':
+            inchar = Serial.read();
+            if(inchar == 'E'){
+              //Reset device if 1
+              serial_input= Serial.parseFloat();
+              if (serial_input == 1){
+                Serial.println("Restarting ESP now!");
+                esp_restart();
+              }
             }
-          }
-          if(inchar == 'F'){
-            serial_input= Serial.parseFloat();
-            if (serial_input == 1111){
-              //Factory reset except credentials
-              Serial.println("NOT YET IMPLEMENTED");
+            if(inchar == 'F'){
+              serial_input= Serial.parseFloat();
+              if (serial_input == 1111){
+                //Factory reset except credentials
+                Serial.println("NOT YET IMPLEMENTED");
+              }
+              if (serial_input == 9999){
+                //Full factory reset
+                Serial.println("FULL FACTORY RESET, ERASING EEPROM");
+                erase_eeprom();
+                Serial.println("WRITING BACKUP DATA");
+                saveConfig(config_data_bcp);
+                Serial.println("RESTARTING");
+                esp_restart();
+              }
             }
-            if (serial_input == 9999){
-              //Full factory reset
-              Serial.println("FULL FACTORY RESET, ERASING EEPROM");
-              erase_eeprom();
-              Serial.println("WRITING BACKUP DATA");
-              saveConfig(config_data_bcp);
-              Serial.println("RESTARTING");
-              esp_restart();
+            break;
+          
+          case 'B':
+            inchar = Serial.read();
+            if(inchar == 'E'){
+              serial_input= Serial.parseFloat();
+              config_data.CLICKER_ACTIVATE = serial_input;
+              if(config_data.CLICKER_ACTIVATE){
+                Serial.println("BEEPER ACTIVATED ");
+              }
+              else{
+                Serial.println("BEEPER DEACTIVATED ");
+              }
             }
-          }
-          break;
-        
-        case 'B':
-          inchar = Serial.read();
-          if(inchar == 'E'){
-            serial_input= Serial.parseFloat();
-            config_data.CLICKER_ACTIVATE = serial_input;
-            if(config_data.CLICKER_ACTIVATE){
-              Serial.println("BEEPER ACTIVATED ");
+            if(inchar == 'D'){
+              //Duty cycle for clicker
+              serial_input= Serial.parseFloat();
+              config_data.CLICKER_DUTYCYCLE = serial_input;
+              Serial.print("Clicker duty cycle set to: ");
+              Serial.print(config_data.CLICKER_DUTYCYCLE);
+              Serial.print("/255");
+              Serial.println();
+              
             }
-            else{
-              Serial.println("BEEPER DEACTIVATED ");
+            if(inchar == 'F'){
+              serial_input= Serial.parseFloat();
+              config_data.CLICKER_FREQ = serial_input;
+              ledcWrite(CLICKER_PWM_CHANNEL, 0);
+              ledcSetup(CLICKER_PWM_CHANNEL, config_data.CLICKER_FREQ, 8);
+              Serial.print("Clicker frequency set to: ");
+              Serial.print(config_data.CLICKER_FREQ);
+              Serial.print(" Hz");
+              Serial.println();
             }
-          }
-          if(inchar == 'D'){
-            //Duty cycle for clicker
-            serial_input= Serial.parseFloat();
-            config_data.CLICKER_DUTYCYCLE = serial_input;
-            Serial.print("Clicker duty cycle set to: ");
-            Serial.print(config_data.CLICKER_DUTYCYCLE);
-            Serial.print("/255");
-            Serial.println();
-            
-          }
-          if(inchar == 'F'){
-            serial_input= Serial.parseFloat();
-            config_data.CLICKER_FREQ = serial_input;
-            ledcWrite(CLICKER_PWM_CHANNEL, 0);
-            ledcSetup(CLICKER_PWM_CHANNEL, config_data.CLICKER_FREQ, 8);
-            Serial.print("Clicker frequency set to: ");
-            Serial.print(config_data.CLICKER_FREQ);
-            Serial.print(" Hz");
-            Serial.println();
-          }
-          break;
+            break;
 
-        case 'L':
-          inchar = Serial.read();
-          if(inchar == 'E'){
-            //Activate click indication leds
-            serial_input= Serial.parseFloat();
-            config_data.LED_ACTIVATE = serial_input;
-            if(config_data.LED_ACTIVATE){
-              Serial.println("LED ACTIVATED ");
+          case 'L':
+            inchar = Serial.read();
+            if(inchar == 'E'){
+              //Activate click indication leds
+              serial_input= Serial.parseFloat();
+              config_data.LED_ACTIVATE = serial_input;
+              if(config_data.LED_ACTIVATE){
+                Serial.println("LED ACTIVATED ");
+              }
+              else{
+                Serial.println("LED DEACTIVATED ");
+              }
             }
-            else{
-              Serial.println("LED DEACTIVATED ");
+            if(inchar == 'F'){
+              //How long to flash and click
+              serial_input= Serial.parseFloat();
+              config_data.INDICATION_LENGTH = serial_input;
+              Serial.print("Indication duration set to: ");
+              Serial.print(config_data.INDICATION_LENGTH);
+              Serial.print(" mS");
+              Serial.println();
             }
-          }
-          if(inchar == 'F'){
-            //How long to flash and click
-            serial_input= Serial.parseFloat();
-            config_data.INDICATION_LENGTH = serial_input;
-            Serial.print("Indication duration set to: ");
-            Serial.print(config_data.INDICATION_LENGTH);
-            Serial.print(" mS");
-            Serial.println();
-          }
-          if(inchar == 'O'){
-            //LOG OUTPUT BOOL
-            serial_input= Serial.parseFloat();
-            config_data.LOG_OUTPUT = serial_input;
-            if(config_data.LOG_OUTPUT){
-              Serial.println("LOGGING ACTIVATED ");
+            if(inchar == 'O'){
+              //LOG OUTPUT BOOL
+              serial_input= Serial.parseFloat();
+              config_data.LOG_OUTPUT = serial_input;
+              if(config_data.LOG_OUTPUT){
+                Serial.println("LOGGING ACTIVATED ");
+              }
+              else{
+                Serial.println("LOGGING DEACTIVATED ");
+              }
             }
-            else{
-              Serial.println("LOGGING DEACTIVATED ");
+            if(inchar == 'S'){
+              //LOG OUTPUT WAITTIME
+              serial_input= Serial.parseFloat();
+              config_data.LOG_SPEED = serial_input;
+              Serial.print("Log interval set to: ");
+              Serial.print(config_data.LOG_SPEED);
+              Serial.print(" mS");
+              Serial.println();
             }
-          }
-          if(inchar == 'S'){
-            //LOG OUTPUT WAITTIME
-            serial_input= Serial.parseFloat();
-            config_data.LOG_SPEED = serial_input;
-            Serial.print("Log interval set to: ");
-            Serial.print(config_data.LOG_SPEED);
-            Serial.print(" mS");
-            Serial.println();
-          }
-          break;
+            break;
 
-        case 'E':
-          inchar = Serial.read();
-          if(inchar == 'V'){
-            //Number of events per indication
-            serial_input= Serial.parseFloat();
-            config_data.EVENT_DELAY = serial_input;
-            Serial.print("Counter now needs  ");
-            Serial.print(config_data.EVENT_DELAY);
-            Serial.print(" events to generate click indication");
-            Serial.println();
-          }
-          break;
-    }
+          case 'E':
+            inchar = Serial.read();
+            if(inchar == 'V'){
+              //Number of events per indication
+              serial_input= Serial.parseFloat();
+              config_data.EVENT_DELAY = serial_input;
+              Serial.print("Counter now needs  ");
+              Serial.print(config_data.EVENT_DELAY);
+              Serial.print(" events to generate click indication");
+              Serial.println();
+            }
+            break;
+      }
   }
-  //COUNTER LOOP
+}
+void counter_loop(){
   now = millis();
   if(now-last > 1000 ){ //do this every second
     last = now;
@@ -544,12 +514,12 @@ void loop() {
 
     buf_click[buf_click_index++] = clicks;
   }
-  
-  //SERIAL LOOP
+}
+
+void log_loop(){
   now_2 = millis();
   if(now_2-last_2 > config_data.LOG_SPEED && config_data.LOG_OUTPUT){ //do this every 100ms
     last_2 = now_2;
-
     buf_volt_avg = array_calculate_avg(buf_volt, BUF_VOLT);
     float buf_cpm_avg_min = array_minmax_avg(buf_click, BUF_CLICK);
     float buf_cpm_avg_hour = array_minmax_avg(buf_click_hour, BUF_CLICK)/60.;
@@ -565,6 +535,96 @@ void loop() {
     Serial.print( float(60/float(ticks_dt/1e6)));
     Serial.println();
   }
+}
 
+
+void clicker_logic(){
+  if(clicks > (click_old+config_data.EVENT_DELAY)){
+    duration = millis();
+    click_old=clicks;
+    if (config_data.CLICKER_ACTIVATE){
+      ledcWrite(CLICKER_PWM_CHANNEL, config_data.CLICKER_DUTYCYCLE);
+    }
+    if (config_data.LED_ACTIVATE){
+      digitalWrite(LED_0, LOW);
+      digitalWrite(LED_1, LOW);
+      digitalWrite(LED_2, LOW);
+      digitalWrite(LED_3, LOW);
+      digitalWrite(LED_4, LOW);
+    }
+    }
+  else {
+    if(millis()-duration > config_data.INDICATION_LENGTH){
+      ledcWrite(CLICKER_PWM_CHANNEL, 0);
+      digitalWrite(LED_0, HIGH);
+      digitalWrite(LED_1, HIGH);
+      digitalWrite(LED_2, HIGH);
+      digitalWrite(LED_3, HIGH);
+      digitalWrite(LED_4, HIGH);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  //Activate eeprom and check if it is programmed
+  EEPROM.begin(EEPROM_SIZE);
+  eepromCheck();
+
+  //ADC Setup, remove the 1b of noise
+  analogSetWidth(11);
+  analogSetAttenuation(ADC_11db);
+
+  pinMode (PULSEPIN, INPUT);
+  
+  //Only needed for REV0.2.0
+  pinMode (25, INPUT);
+
+  pinMode (LED_0, OUTPUT);
+  pinMode (LED_1, OUTPUT);
+  pinMode (LED_2, OUTPUT);
+  pinMode (LED_3, OUTPUT);
+  pinMode (LED_4, OUTPUT);
+  
+  //Set leds high to not light up
+  digitalWrite(LED_0, HIGH);
+  digitalWrite(LED_1, HIGH);
+  digitalWrite(LED_2, HIGH);
+  digitalWrite(LED_3, HIGH);
+  digitalWrite(LED_4, HIGH);
+  
+  //Geiger Pulse Interrupt
+  attachInterrupt(PULSEPIN, ISR, FALLING);
+  
+  //Attatch output pins to pwm channels
+  ledcAttachPin(BUCK_PIN, BUCK_PWM_CHANNEL);
+  ledcAttachPin(CLICKER, CLICKER_PWM_CHANNEL);
+  
+  //Configure pwm channels resolution, buck is 12 bit (4096) clicker is 8 bit (255)
+  ledcSetup(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_FREQ, 12);
+  ledcSetup(CLICKER_PWM_CHANNEL, config_data.CLICKER_FREQ, 8);
+  ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
+
+
+  ap_init();
+}
+
+void loop() {
+  unsigned long start = micros();
+  
+  //Clicker logic
+  clicker_logic();
+
+  //Serial Output
+  serial_handler();
+
+  //COUNTER LOOP
+  counter_loop();
+  
+  //SERIAL LOOP
+  log_loop();
+
+  //Server Handler
   dnsServer.processNextRequest();
 }
