@@ -16,7 +16,8 @@
 #define LED_3 15
 #define LED_4 4
 #define BUCK_PIN 12
-#define CLICKER_PWM_CHANNEL 12
+#define BOOTBUTTON 12
+#define CLICKER_PWM_CHANNEL 11
 #define BUCK_PWM_CHANNEL 0
 #define CLICKER 32 //Speaker element
 #define REF_PIN 39 //ADC Input
@@ -92,7 +93,7 @@ AsyncWebServer server(80);
 
 typedef struct {
   //HV PWM DUTY CYCLE config_data.BUCK_PWM_SETPOINT/4095
-  uint BUCK_PWM_SETPOINT=350;
+  uint BUCK_PWM_SETPOINT=400;
   //PWM Frequency
   uint BUCK_PWM_FREQ = 1001;
   //CLICK SOUND ONOFF
@@ -170,10 +171,27 @@ void erase_eeprom(){
 }
 
 void IRAM_ATTR ISR() {
-    ticks_old = ticks;
-    ticks = micros();
-    clicks++;
-    ticks_dt = ticks-ticks_old;
+  ticks_old = ticks;
+  ticks = micros();
+  clicks++;
+  ticks_dt = ticks-ticks_old;
+}
+
+volatile unsigned long reset_clicks = 0;
+volatile unsigned long reset_ticks_old = 0;
+volatile unsigned long reset_ticks = micros();
+
+void IRAM_ATTR RESET_INT() {
+  reset_clicks++;
+  reset_ticks = millis();
+  if(reset_ticks_old-reset_ticks > 2000){
+    reset_clicks = 0;
+  }
+  if(reset_clicks > 5){
+    erase_eeprom();
+    saveConfig(config_data_bcp);
+    esp_restart();
+  }
 }
 
 float array_calculate_avg(int * buf, int len){
@@ -287,7 +305,7 @@ public:
     response->print( "<h1>EIKGEIGER CONFIG</h1>");
     response->printf("<p>Geigertelleren er aktiv, den er innstilt til %i </p>",config_data.BUCK_PWM_SETPOINT);
     response->print( "<p>Hvis du vil endre spenning brukes seriellport gjennom usb med buadrate på 115200.</p>");
-    response->print( "<p>Bruk kommando VO### , der ### er et heltall mellom 0-2000. Start lavt og gå sakte oppover til du får CPM verdi fra geigeren</p>");
+    response->print( "<p>Bruk kommando H for å få hjelpemeny i seriellporten<br><br></p>");
     response->printf("<p>Gjennomsnittlig CPM siste minutt er  %.2f klikk per minutt</p>", array_minmax_avg(buf_click, BUF_CLICK));
     response->print( "<p>Vennligst velg hvilket wifi du vil koble deg til, og skriv inn passord</p>");
     response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
@@ -321,6 +339,25 @@ public:
 void ap_init(){
   scanwifi();
   WiFi.softAP("esp-captive");
+
+  server.on("/", HTTP_POST, [](AsyncWebServerRequest * request) 
+  {
+    int paramsNr = request->params(); // number of params (e.g., 1)
+    Serial.println(paramsNr);
+    Serial.println();
+    
+    for ( int i= 0; i<paramsNr;i++){
+      AsyncWebParameter * p = request->getParam(i); // 1st parameter
+      Serial.print("Param name: ");
+      Serial.print(p->name());
+      Serial.print("\t");
+      Serial.print("Value: ");
+      Serial.print(p->value());                     // value ^
+      Serial.println();
+    }
+    request->send(200);
+  });
+
   dnsServer.start(53, "*", WiFi.softAPIP());
   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
   //more handlers...
@@ -577,7 +614,8 @@ void setup() {
   analogSetAttenuation(ADC_11db);
 
   pinMode (PULSEPIN, INPUT);
-  
+  pinMode (BOOTBUTTON, INPUT);
+
   //Only needed for REV0.2.0
   pinMode (25, INPUT);
 
@@ -595,8 +633,8 @@ void setup() {
   digitalWrite(LED_4, HIGH);
   
   //Geiger Pulse Interrupt
-  attachInterrupt(PULSEPIN, ISR, FALLING);
-  
+  attachInterrupt(  PULSEPIN, ISR, FALLING);
+  attachInterrupt(BOOTBUTTON, RESET_INT, FALLING);
   //Attatch output pins to pwm channels
   ledcAttachPin(BUCK_PIN, BUCK_PWM_CHANNEL);
   ledcAttachPin(CLICKER, CLICKER_PWM_CHANNEL);
