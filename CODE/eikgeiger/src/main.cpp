@@ -307,13 +307,12 @@ public:
     AsyncResponseStream *response = request->beginResponseStream("text/html");
     response->print("<!DOCTYPE html><html><head><title>EIKGEIGER CONFIG</title></head><body>");
     response->print( "<h1>EIKGEIGER CONFIG</h1>");
-    response->printf("<p>Geigertelleren er aktiv, den er innstilt til %i </p>",config_data.BUCK_PWM_SETPOINT);
-    response->print( "<p>Hvis du vil endre spenning brukes seriellport gjennom usb med buadrate på 115200.</p>");
-    response->print( "<p>Bruk kommando H for å få hjelpemeny i seriellporten<br><br></p>");
-    response->printf("<p>Gjennomsnittlig CPM siste minutt er  %.2f klikk per minutt</p>", array_minmax_avg(buf_click, BUF_CLICK));
-    response->print( "<p>Vennligst velg hvilket wifi du vil koble deg til, og skriv inn passord</p>");
-    response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
-    response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
+    response->printf("<p>The geiger counter is active, it is configured for %i /4096 duty cycle</p>",config_data.BUCK_PWM_SETPOINT);
+    response->print( "<p>To change voltage or params use a serial monitor and connect with  115200 baud.</p>");
+    response->print( "<p>Send 'H' over serial to get a help menu<br><br></p>");
+    response->printf("<p>Average CPM last minute is  %.2f clicks per minute</p>", array_minmax_avg(buf_click, BUF_CLICK));
+    response->print( "<p>Please write which wifi you want to connect and radmon credentials</p>");
+    response->printf("<p>Try opening <a href='http://%s'>this link</a> to get ip page</p>", WiFi.softAPIP().toString().c_str());
     response->print( st );
     response->print( "<form action='/post' method='POST'>"
                      "<p><label for='ssid'>SSID, write name or number for found wifi</label><br>"
@@ -340,10 +339,39 @@ public:
   }
 };
 
-void ap_init(){
-  scanwifi();
-  WiFi.softAP("EIKFEIGER-captive");
 
+void start_main_page(){
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+  AsyncResponseStream *response = request->beginResponseStream("text/html");
+  response->print("<!DOCTYPE html><html><head><title>EIKGEIGER CONFIG</title></head><body>");
+  response->print( "<h1>EIKGEIGER CONFIG</h1>");
+  response->printf("<p>The geiger counter is active, it is configured for %i /4096 duty cycle</p>",config_data.BUCK_PWM_SETPOINT);
+  response->print( "<p>To change voltage or params use a serial monitor and connect with  115200 baud.</p>");
+  response->print( "<p>Send 'H' over serial to get a help menu<br><br></p>");
+  response->printf("<p>Average CPM last minute is  %.2f clicks per minute</p>", array_minmax_avg(buf_click, BUF_CLICK));
+  response->print( "<p>Please write which wifi you want to connect and radmon credentials</p>");
+  response->printf("<p>Try opening <a href='http://%s'>this link</a> to get ip page</p>", WiFi.localIP().toString().c_str());
+  response->print( st );
+  response->printf( "<form action='./post' method='POST'>"
+                    "<p><label for='ssid'>SSID, write name or number for found wifi</label><br>"
+                    "<input type='text' id ='ssid' name='ssid' value='%s'><br><br>",config_data.WIFI_SSID);
+
+  response->printf("<label for='pass'>Password </label><br>"
+                    "<input type='text' id ='pass' name='pass'value='%s'><br><br>",config_data.WIFI_PASS);
+
+  response->printf("<label for='radmon_username'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
+                    "<input type='text' id ='radmon_username' name='radmon_username' value='%s'><br><br>",config_data.RADMON_USER);
+                  
+  response->printf("<label for='radmon_pass'>Radmon device password (NOT login password)</a></label><br>"
+                    "<input type='text' id ='radmon_pass' name='radmon_pass' value='%s'><br><br>",config_data.RADMON_PASS);
+
+  response->print(  "<input type ='submit' value ='Submit'></p></form>" );
+  response->print( "</body></html>");
+  request->send(response);
+  });
+}
+
+void start_response_server(){
   server.on("/post", HTTP_POST, [](AsyncWebServerRequest * request) 
   {
     int paramsNr = request->params(); // number of params (e.g., 1)
@@ -368,25 +396,21 @@ void ap_init(){
     string_val = r->value();
     data[0] = '\0';
     strcpy(data,string_val.c_str());
-    if (strlen(data) != 0){
-      strcpy(config_data.WIFI_PASS,data);
-    }
+    strcpy(config_data.WIFI_PASS,data);
+    
     //RADMON_USER
-    r = request->getParam(4); // 1st parameter
+    r = request->getParam(2); // 1st parameter
     string_val = r->value();
     data[0] = '\0';
     strcpy(data,string_val.c_str());
-    if (strlen(data) != 0){
-      strcpy(config_data.RADMON_USER,data);
-    }
+    strcpy(config_data.RADMON_USER,data);
+    
     //RADMON_USER_PASS
-    r = request->getParam(5); // 1st parameter
+    r = request->getParam(3); // 1st parameter
     string_val = r->value();
     data[0] = '\0';
     strcpy(data,string_val.c_str());
-    if (strlen(data) != 0){
-      strcpy(config_data.RADMON_PASS,data);
-    }
+    strcpy(config_data.RADMON_PASS,data);
 
     request->send(200);
 
@@ -394,7 +418,6 @@ void ap_init(){
     esp_restart();
   });
 
-  
   server.on("/cpm", HTTP_GET, [](AsyncWebServerRequest * request) 
   {
      AsyncResponseStream *response = request->beginResponseStream("text/html");
@@ -407,7 +430,12 @@ void ap_init(){
 
     request->send(response);
   });
+}
 
+void ap_init(){
+  scanwifi();
+  WiFi.softAP("EIKFEIGER-captive");
+  start_response_server();
   dnsServer.start(53, "*", WiFi.softAPIP());
   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
   //more handlers...
@@ -631,11 +659,15 @@ void counter_loop(){
   now = millis();
   if(now-last > 1000 ){ //do this every second
     last = now;
+    //Do this every minute
     if (BUF_CLICK == buf_click_index){
       buf_click_index = 0;
       buf_click_hour[buf_click_hour_index++] = clicks;
+      if(strlen(config_data.RADMON_PASS) != 0){
+        upload(array_minmax_avg(buf_click,BUF_CLICK));
+      }
     }
-
+    //Do this every hour
     if (BUF_CLICK_HOUR == buf_click_hour_index){
       buf_click_hour_index = 0;
     }
@@ -746,9 +778,8 @@ void setup() {
     Serial.println("\nConnecting");
     int retries = 0;
 
-    while(WiFi.status() != WL_CONNECTED){
+    while((WiFi.status() != WL_CONNECTED) && (retries < 60)){
         Serial.print(".");
-        
         digitalWrite(LED_0, LOW);
         delay(30);
         digitalWrite(LED_0, HIGH);
@@ -765,16 +796,21 @@ void setup() {
         delay(30);
         digitalWrite(LED_4, HIGH);
         delay(30);
-
-        if(retries > 60){
-          Serial.print("NETWORK ERROR");
-          break;
-        }
+        retries++; 
     }
-    Serial.println("Connected to WIFI");
-    wifi_conn = WiFi.status() == WL_CONNECTED;
+    if ((WiFi.status() == WL_CONNECTED)){
+      Serial.println("Connected to WIFI");
+      Serial.print("Local IP: ");
+      Serial.println(WiFi.localIP());
+      wifi_conn = WiFi.status() == WL_CONNECTED;
+      start_main_page();
+      start_response_server();
+      server.begin();
+    }
   }
+
   if(wifi_conn == false){
+    Serial.print("NETWORK ERROR");
     ap_init();
   }
 }
