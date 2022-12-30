@@ -77,7 +77,7 @@ unsigned long now = last+1;
 unsigned long last_2 = now+1;
 unsigned long now_2 = last_2+1;
 
-
+int num_radmon_fails = 0;
 
 //server
 int statusCode;
@@ -421,11 +421,11 @@ void start_response_server(){
   server.on("/cpm", HTTP_GET, [](AsyncWebServerRequest * request) 
   {
      AsyncResponseStream *response = request->beginResponseStream("text/html");
-    response->printf("{'cpm':%.3f,'cpm_M':%.2f,'cpm_H':%.2f,'raw_volt':%.2f}",
+    response->printf("{\"data\":{\"cpm\":%.3f,\"cpm_M\":%.2f,\"cpm_H\":%.2f,\"raw_volt\":%i}}",
                       float(60/float(ticks_dt/1e6)),
                       array_minmax_avg(buf_click, BUF_CLICK),
                       array_minmax_avg(buf_click_hour, BUF_CLICK)/60.,
-                      array_calculate_avg(buf_volt, BUF_VOLT)
+                      analogRead(REF_PIN)
     );
 
     request->send(response);
@@ -693,10 +693,6 @@ void log_loop(){
     Serial.print(buf_cpm_avg_hour);
     Serial.print(" cpm:");
     Serial.print( float(60/float(ticks_dt/1e6)));
-    Serial.print(" wifi_ssid:");
-    Serial.print(config_data.WIFI_SSID);
-    Serial.print(" wifi_ssidp:");
-    Serial.print(config_data.WIFI_PASS);
     Serial.println();
   }
 }
