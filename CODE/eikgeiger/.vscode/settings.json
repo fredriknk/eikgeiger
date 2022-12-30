@@ -20,6 +20,8 @@
         "string_view": "cpp",
         "iosfwd": "cpp",
         "limits": "cpp",
-        "bitset": "cpp"
+        "bitset": "cpp",
+        "array": "cpp",
+        "string": "cpp"
     }
 }

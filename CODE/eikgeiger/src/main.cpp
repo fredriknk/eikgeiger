@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <DNSServer.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <AsyncTCP.h>
 #include "ESPAsyncWebServer.h"
 #include <EEPROM.h>
@@ -90,6 +91,7 @@ String epass = "";
 DNSServer dnsServer;
 AsyncWebServer server(80);
 
+bool wifi_conn = false;
 
 typedef struct {
   //HV PWM DUTY CYCLE config_data.BUCK_PWM_SETPOINT/4095
@@ -182,11 +184,13 @@ volatile unsigned long reset_ticks_old = 0;
 volatile unsigned long reset_ticks = micros();
 
 void IRAM_ATTR RESET_INT() {
+
   reset_clicks++;
   reset_ticks = millis();
   if(reset_ticks_old-reset_ticks > 2000){
     reset_clicks = 0;
   }
+
   if(reset_clicks > 5){
     erase_eeprom();
     saveConfig(config_data_bcp);
@@ -280,7 +284,7 @@ void scanwifi(){
     // Print SSID and RSSI for each network found
     st += "<li>";
     st += WiFi.SSID(i);
-    st += " (";
+    st += "\t(";
     st += WiFi.RSSI(i);
     st += ")";
     //st += (WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*";
@@ -311,7 +315,7 @@ public:
     response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
     response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
     response->print( st );
-    response->print( "<form action='/' method='POST'>"
+    response->print( "<form action='/post' method='POST'>"
                      "<p><label for='ssid'>SSID, write name or number for found wifi</label><br>"
                      "<input type='text' id ='ssid' name='ssid'><br><br>"
 
@@ -338,24 +342,70 @@ public:
 
 void ap_init(){
   scanwifi();
-  WiFi.softAP("esp-captive");
+  WiFi.softAP("EIKFEIGER-captive");
 
-  server.on("/", HTTP_POST, [](AsyncWebServerRequest * request) 
+  server.on("/post", HTTP_POST, [](AsyncWebServerRequest * request) 
   {
     int paramsNr = request->params(); // number of params (e.g., 1)
-    Serial.println(paramsNr);
-    Serial.println();
-    
-    for ( int i= 0; i<paramsNr;i++){
-      AsyncWebParameter * p = request->getParam(i); // 1st parameter
-      Serial.print("Param name: ");
-      Serial.print(p->name());
-      Serial.print("\t");
-      Serial.print("Value: ");
-      Serial.print(p->value());                     // value ^
-      Serial.println();
+    /*
+    0 Param name: ssid                Value: testssid
+    1 Param name: pass                Value: testpassord
+    2 Param name: ip                  Value: 1.2.3.4
+    3 Param name: gateway             Value: 255.255.255.255
+    4 Param name: radmon_username     Value: testrad
+    5 Param name: radmon_pass         Value: testradpass
+    */
+    //SSID
+    AsyncWebParameter * r = request->getParam(0); // 1st parameter
+    String string_val = r->value();
+    char data[128] = {};
+    strcpy(data,string_val.c_str());
+    if (strlen(data) != 0){
+      strcpy(config_data.WIFI_SSID,data);
     }
+    //SSID_pass
+    r = request->getParam(1); // 1st parameter
+    string_val = r->value();
+    data[0] = '\0';
+    strcpy(data,string_val.c_str());
+    if (strlen(data) != 0){
+      strcpy(config_data.WIFI_PASS,data);
+    }
+    //RADMON_USER
+    r = request->getParam(4); // 1st parameter
+    string_val = r->value();
+    data[0] = '\0';
+    strcpy(data,string_val.c_str());
+    if (strlen(data) != 0){
+      strcpy(config_data.RADMON_USER,data);
+    }
+    //RADMON_USER_PASS
+    r = request->getParam(5); // 1st parameter
+    string_val = r->value();
+    data[0] = '\0';
+    strcpy(data,string_val.c_str());
+    if (strlen(data) != 0){
+      strcpy(config_data.RADMON_PASS,data);
+    }
+
     request->send(200);
+
+    saveConfig(config_data);
+    esp_restart();
+  });
+
+  
+  server.on("/cpm", HTTP_GET, [](AsyncWebServerRequest * request) 
+  {
+     AsyncResponseStream *response = request->beginResponseStream("text/html");
+    response->printf("{'cpm':%.3f,'cpm_M':%.2f,'cpm_H':%.2f,'raw_volt':%.2f}",
+                      float(60/float(ticks_dt/1e6)),
+                      array_minmax_avg(buf_click, BUF_CLICK),
+                      array_minmax_avg(buf_click_hour, BUF_CLICK)/60.,
+                      array_calculate_avg(buf_volt, BUF_VOLT)
+    );
+
+    request->send(response);
   });
 
   dnsServer.start(53, "*", WiFi.softAPIP());
@@ -536,6 +586,47 @@ void serial_handler(){
       }
   }
 }
+
+// upload counts to web server
+void upload(int cpm_) {
+  const char *cmdFormat = "http://radmon.org/radmon.php?function=submit&user=%s&password=%s&value=%d&unit=CPM";
+  char url[256];
+
+  WiFiClient client;
+  HTTPClient http;
+
+  // create the request URL
+  sprintf(url, cmdFormat, config_data.RADMON_USER, 
+                          config_data.RADMON_PASS, 
+                          cpm_
+  );
+  
+  Serial.print("[HTTP] begin: ");
+  Serial.println(url);
+
+  if (http.begin(client, url)) {
+    Serial.print("[HTTP] GET...");
+    // start connection and send HTTP header
+    int httpCode = http.GET();
+
+    // HTTP header has been sent and server response header has been handled
+    Serial.printf(" code: %d\n", httpCode);
+    
+    // httpCode will be negative on error
+    if (httpCode > 0) {
+      // file found at server
+      if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+        String payload = http.getString();
+        Serial.println(payload);
+      }
+    }
+    else {
+      Serial.printf("[HTTP] GET failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+    http.end();
+  }
+}
+
 void counter_loop(){
   now = millis();
   if(now-last > 1000 ){ //do this every second
@@ -570,6 +661,10 @@ void log_loop(){
     Serial.print(buf_cpm_avg_hour);
     Serial.print(" cpm:");
     Serial.print( float(60/float(ticks_dt/1e6)));
+    Serial.print(" wifi_ssid:");
+    Serial.print(config_data.WIFI_SSID);
+    Serial.print(" wifi_ssidp:");
+    Serial.print(config_data.WIFI_PASS);
     Serial.println();
   }
 }
@@ -643,9 +738,45 @@ void setup() {
   ledcSetup(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_FREQ, 12);
   ledcSetup(CLICKER_PWM_CHANNEL, config_data.CLICKER_FREQ, 8);
   ledcWrite(BUCK_PWM_CHANNEL, config_data.BUCK_PWM_SETPOINT);
+  
+  if (strlen(config_data.WIFI_SSID) != 0){
 
+    WiFi.mode(WIFI_STA); //Optional
+    WiFi.begin(config_data.WIFI_SSID, config_data.WIFI_PASS);
+    Serial.println("\nConnecting");
+    int retries = 0;
 
-  ap_init();
+    while(WiFi.status() != WL_CONNECTED){
+        Serial.print(".");
+        
+        digitalWrite(LED_0, LOW);
+        delay(30);
+        digitalWrite(LED_0, HIGH);
+        digitalWrite(LED_1, LOW);
+        delay(30);
+        digitalWrite(LED_1, HIGH);
+        digitalWrite(LED_2, LOW);
+        delay(30);
+        digitalWrite(LED_2, HIGH);
+        digitalWrite(LED_3, LOW);
+        delay(30);
+        digitalWrite(LED_3, HIGH);
+        digitalWrite(LED_4, LOW);
+        delay(30);
+        digitalWrite(LED_4, HIGH);
+        delay(30);
+
+        if(retries > 60){
+          Serial.print("NETWORK ERROR");
+          break;
+        }
+    }
+    Serial.println("Connected to WIFI");
+    wifi_conn = WiFi.status() == WL_CONNECTED;
+  }
+  if(wifi_conn == false){
+    ap_init();
+  }
 }
 
 void loop() {
@@ -664,5 +795,7 @@ void loop() {
   log_loop();
 
   //Server Handler
-  dnsServer.processNextRequest();
+  if ( wifi_conn == false){
+    dnsServer.processNextRequest();
+  }
 }
