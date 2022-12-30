@@ -321,12 +321,6 @@ public:
                      "<label for='pass'>Password </label><br>"
                      "<input type='text' id ='pass' name='pass'><br><br>"
 
-                     "<label for='ip'>IP Address (Leave blank for DHCP) </label><br>"
-                     "<input type='text' id ='ip' name='ip' value=''><br><br>"
-
-                     "<label for='gateway'>Gateway Address (leave blank for auto)</label><br>"
-                     "<input type='text' id ='gateway' name='gateway' value=''><br><br>"
-
                      "<label for='radmon_username'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
                      "<input type='text' id ='radmon_username' name='radmon_username' value=''><br><br>"
                     
@@ -434,7 +428,7 @@ void start_response_server(){
 
 void ap_init(){
   scanwifi();
-  WiFi.softAP("EIKFEIGER-captive");
+  WiFi.softAP("EIKGEIGER-captive");
   start_response_server();
   dnsServer.start(53, "*", WiFi.softAPIP());
   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);//only when requested from AP
