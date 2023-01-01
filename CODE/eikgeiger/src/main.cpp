@@ -314,20 +314,20 @@ public:
     response->print( "<p>Please write which wifi you want to connect and radmon credentials</p>");
     response->printf("<p>Try opening <a href='http://%s'>this link</a> to get ip page</p>", WiFi.softAPIP().toString().c_str());
     response->print( st );
-    response->print( "<form action='/post' method='POST'>"
-                     "<p><label for='ssid'>SSID, write name or number for found wifi</label><br>"
-                     "<input type='text' id ='ssid' name='ssid'><br><br>"
+    response->printf( "<form action='./post' method='POST'>"
+                  "<p><label for='ssid'>SSID, write name for found wifi</label><br>"
+                  "<input type='text' id ='ssid' name='ssid' value='%s'><br><br>",config_data.WIFI_SSID);
 
-                     "<label for='pass'>Password </label><br>"
-                     "<input type='text' id ='pass' name='pass'><br><br>"
+    response->print("<label for='pass'>WIFI Password </label><br>"
+                      "<input type='text' id ='pass' name='pass'><br><br>");
 
-                     "<label for='radmon_username'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
-                     "<input type='text' id ='radmon_username' name='radmon_username' value=''><br><br>"
+    response->printf("<label for='radmon_username'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
+                      "<input type='text' id ='radmon_username' name='radmon_username' value='%s'><br><br>",config_data.RADMON_USER);
                     
-                     "<label for='radmon_pass'>Radmon device password (NOT login password)</a></label><br>"
-                     "<input type='text' id ='radmon_pass' name='radmon_pass' value=''><br><br>"
+    response->printf("<label for='radmon_pass'>Radmon device password (NOT login password)</a></label><br>"
+                      "<input type='text' id ='radmon_pass' name='radmon_pass' value='%s'><br><br>",config_data.RADMON_PASS);
 
-                     "<input type ='submit' value ='Submit'></p></form>");
+    response->print(  "<input type ='submit' value ='Submit'></p></form>" );
     response->print( "</body></html>");
     request->send(response);
   }
@@ -344,13 +344,12 @@ void start_main_page(){
   response->print( "<p>Send 'H' over serial to get a help menu<br><br></p>");
   response->printf("<p>Average CPM last minute is  %.2f clicks per minute</p>", array_minmax_avg(buf_click, BUF_CLICK));
   response->print( "<p>Please write which wifi you want to connect and radmon credentials</p>");
-  response->printf("<p>Try opening <a href='http://%s'>this link</a> to get ip page</p>", WiFi.localIP().toString().c_str());
-  response->print( st );
+  response->printf("<p>Try opening <a href='http://%s/cpm'>this link</a> to get API page</p>", WiFi.localIP().toString().c_str());
   response->printf( "<form action='./post' method='POST'>"
-                    "<p><label for='ssid'>SSID, write name or number for found wifi</label><br>"
+                    "<p><label for='ssid'>SSID, write name for found wifi</label><br>"
                     "<input type='text' id ='ssid' name='ssid' value='%s'><br><br>",config_data.WIFI_SSID);
 
-  response->printf("<label for='pass'>Password </label><br>"
+  response->printf("<label for='pass'>WIFI Password </label><br>"
                     "<input type='text' id ='pass' name='pass'value='%s'><br><br>",config_data.WIFI_PASS);
 
   response->printf("<label for='radmon_username'>Radmon_username, register user at <a href='https://radmon.org/index.php/register'>Radmon.org</a></label><br>"
