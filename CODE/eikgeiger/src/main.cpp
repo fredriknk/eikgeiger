@@ -68,6 +68,9 @@ volatile unsigned long ticks = micros();
 volatile unsigned long ticks_old = ticks-10;
 volatile unsigned long ticks_dt = 0;
 
+unsigned long previousMillis_wifi = 0;
+int interval_wifi = 30000;
+
 unsigned long duration = millis();
 
 unsigned long first = millis();
@@ -718,6 +721,38 @@ void clicker_logic(){
   }
 }
 
+void led_rise(int waittime){
+    digitalWrite(LED_0, LOW);
+    delay(waittime);
+    digitalWrite(LED_0, HIGH);
+    digitalWrite(LED_1, LOW);
+    delay(waittime);
+    digitalWrite(LED_1, HIGH);
+    digitalWrite(LED_2, LOW);
+    delay(waittime);
+    digitalWrite(LED_2, HIGH);
+    digitalWrite(LED_3, LOW);
+    delay(waittime);
+    digitalWrite(LED_3, HIGH);
+    digitalWrite(LED_4, LOW);
+    delay(waittime);
+    digitalWrite(LED_4, HIGH);
+    delay(waittime);
+}
+
+void check_and_reconnect(){
+  unsigned long currentMillis_wifi = millis();
+  // if WiFi is down, try reconnecting
+  if ((WiFi.status() != WL_CONNECTED) && (currentMillis_wifi - previousMillis_wifi >= interval_wifi)) {
+    Serial.println("Reconnecting to WiFi...");
+    led_rise(30);
+    led_rise(30);
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis_wifi = currentMillis_wifi;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -769,22 +804,7 @@ void setup() {
 
     while((WiFi.status() != WL_CONNECTED) && (retries < 60)){
         Serial.print(".");
-        digitalWrite(LED_0, LOW);
-        delay(30);
-        digitalWrite(LED_0, HIGH);
-        digitalWrite(LED_1, LOW);
-        delay(30);
-        digitalWrite(LED_1, HIGH);
-        digitalWrite(LED_2, LOW);
-        delay(30);
-        digitalWrite(LED_2, HIGH);
-        digitalWrite(LED_3, LOW);
-        delay(30);
-        digitalWrite(LED_3, HIGH);
-        digitalWrite(LED_4, LOW);
-        delay(30);
-        digitalWrite(LED_4, HIGH);
-        delay(30);
+        led_rise(30);
         retries++; 
     }
     if ((WiFi.status() == WL_CONNECTED)){
@@ -822,5 +842,8 @@ void loop() {
   //Server Handler
   if ( wifi_conn == false){
     dnsServer.processNextRequest();
+  }
+  else{
+    check_and_reconnect();
   }
 }
