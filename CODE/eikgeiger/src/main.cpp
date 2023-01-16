@@ -48,6 +48,18 @@ const char *HELP ="|------------------------------------------------------------
                   "| EV            |  EVENTSPERCLICK (number)| 0-1000    | 0        |\n"
                   "|----------------------------------------------------------------|\n";
 
+
+// Helper menu to explain the different values
+const char *EXPLAIN ="|--------------------------------------------------------------------------|\n"
+                     "|   Variabel  |   Explaination                                             |\n"
+                     "|-------------|------------------------------------------------------------|\n"
+                     "| raw_volt    |integer between 0 and 2048, mapped to voltage range 0-1300  |\n"
+                     "| set_volt    |integer between 0 and 2048. Duty cycle                      |\n"
+                     "| cpmM        |floating average clicks per min                             |\n"
+                     "| cpmH        |floating average clicks per min over an hour                |\n"
+                     "| cpm         |number of ms from last click                                |\n"
+                     "|--------------------------------------------------------------------------|\n";
+
 int   buf_volt[BUF_VOLT]   = {0};
 int   buf_volt_index       = 0;
 float buf_volt_avg         = 0.0;
@@ -452,6 +464,9 @@ void serial_handler(){
             //Help Menu
             Serial.print(HELP);
           break;
+          case '?':
+            // Variable Explaination
+            Serial.print(EXPLAIN);
           case 'V':
             inchar = Serial.read();
             if(inchar == 'O'){
