@@ -55,9 +55,9 @@ const char *EXPLAIN ="|---------------------------------------------------------
                      "|-------------|------------------------------------------------------------|\n"
                      "| raw_volt    |integer between 0 and 2048, mapped to voltage range 0-1300  |\n"
                      "| set_volt    |integer between 0 and 2048. Duty cycle                      |\n"
-                     "| cpmM        |floating average clicks per min                             |\n"
+                     "| cpmM        |floating average 60 seconds clicks per min                  |\n"
                      "| cpmH        |floating average clicks per min over an hour                |\n"
-                     "| cpm         |number of ms from last click                                |\n"
+                     "| cpm         |cpm calculated from number of ms since last click           |\n"
                      "|--------------------------------------------------------------------------|\n";
 
 int   buf_volt[BUF_VOLT]   = {0};
