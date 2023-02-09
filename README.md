@@ -55,28 +55,27 @@ so it allows for automatic programming over USB without pushing the boot pin.
 
 ## Homeassistant Implementation
 To add the sensor in home assistant, use the following YAML sensor, supplied by u/[chillinorway](https://github.com/chillinorway)
-```
 sensor:
-  platform: rest
-  name: EIK_Geiger
-  resource: http://IP.IP.IP.IP/cpm
-  json_attributes: 
-    "data"
+  - platform: rest
+    name: EIK_Geiger
+    resource: http://<IP-Address>/cpm
+    json_attributes:
+      - "data"
     value_template: "OK"
-    platform: template
-  sensors:
-    cpm:
-      value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['cpm'] }}"
-      unit_of_measurement: "cpm"
-    cpm_m:
-      value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['cpm_M'] }}"
-      unit_of_measurement: "cpm_avg_m"
-    cpm_h:
-      value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['cpm_H'] }}"
-      unit_of_measurement: "cpm_avg_h"
-    raw_volt:
-      value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['raw_volt'] }}"
-      unit_of_measurement: "raw_voltage"
+  - platform: template
+    sensors:
+      cpm:
+        value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['cpm'] }}"
+        unit_of_measurement: "cpm"
+      cpm_m:
+        value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['cpm_M'] }}"
+        unit_of_measurement: "cpm_avg_m"
+      cpm_h:
+        value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['cpm_H'] }}"
+        unit_of_measurement: "cpm_avg_h"
+      raw_volt:
+        value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['raw_volt'] }}"
+        unit_of_measurement: "raw_voltage"
 ```
 
 ## FRONT
