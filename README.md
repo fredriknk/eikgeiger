@@ -55,6 +55,7 @@ so it allows for automatic programming over USB without pushing the boot pin.
 
 ## Homeassistant Implementation
 To add the sensor in home assistant, use the following YAML sensor, supplied by u/[chillinorway](https://github.com/chillinorway)
+```
 sensor:
   - platform: rest
     name: EIK_Geiger
