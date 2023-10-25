@@ -24,7 +24,7 @@ If you want to handsolder this, i really recommend to check out the awesome IBOM
 ## Serial port controll comands
 
 To reconfigure device settings you need to connect the eikgeiger to a computer with a serial terminal (I reccomend to just use the [Arduino Program](https://www.arduino.cc/en/software), but any serial terminal should work)
-When you want to configure a value you use two characters plus a number. So to set the PWM frequency to 2000hz, you would write PF2000 in the terminal and send. Some commands need a specific number, eg to factory reset you must transmit FR9999
+When you want to configure a value you use two characters plus a number. So to set the PWM frequency to 2000hz, you would write PF2000 in the terminal and send. Some commands need a specific number, eg to factory reset you must transmit FR9999. after you have verified that the configuraion works you use SA1 to save the config to the flash eeprom
 
 | **Characters**| **Unit**                | **Value** | **Factory Value** | **Description**                                                                                                                                                                                                                                           | **Example** |
 |---------------|-------------------------|-----------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|
