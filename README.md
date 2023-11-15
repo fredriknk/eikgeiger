@@ -87,13 +87,6 @@ sensor:
 
 ![Back](./PICTURES/BOTTOM.PNG)
 
-## FIRST PRODUCTION PROTOTYPE
-The jumper cable bugfix was taken care of in rev 0.2.1 (Purple PCB silkscreen)
-![Front real](./PICTURES/TOP_900px.jpg)
-![Back real](./PICTURES/BOTTOM_900px.jpg)
-![Case Real](./PICTURES/CASE_900px.jpeg)
-## BUCK BOOST CONVERTER
-![HV SOURCE](./PICTURES/HV-SOURCE.PNG)
 
 It is designed for SBM-20 GM tube integrated onto the PCB with 6.3mm fuse holders, but it can use any tube up to 1000v if you just solder on some leads. The power supply is a standard buck boost, but with a 4x voltage multiplier output. It seems reaonably of effective, and consumes about 4ma@3.3v delivering 350v out running at 1000hz pwm. It has a voltage feedback read by adc2 on the esp32 module, but from experimentation i found it more stable to just set a pwm level rather than actively regulating it
 
