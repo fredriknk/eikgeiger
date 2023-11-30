@@ -33,7 +33,7 @@
 const char *HELP ="|----------------------------------------------------------------|\n"
                   "|   Characters  |   Unit                  |   Value   | DEFAULT  |\n"
                   "|---------------|-------------------------|-----------|----------|\n"
-                  "| VO            |  VOLT (value/4096 %)    | 0-2000    | 350      |\n"
+                  "| VO            |  VOLT (value/4096 %)    | 0-2000    | 400      |\n"
                   "| VF            |  FREQUENCY (hz)         | 0-18000   | 1001     |\n"
                   "| SA            |  SAVE TO EPPROM         | 1         | -        |\n"
                   "| RE            |  REBOOT SYSTEM          | 1         | -        |\n"
