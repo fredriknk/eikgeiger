@@ -167,15 +167,17 @@ void eepromCheck(){
   snprintf(ssid, 23, "MCUDEVICE-%llX", ESP.getEfuseMac());
   Serial.print("ID: ");
   Serial.println(ssid);
+  Serial.print("Mac Address: ");
+  Serial.println(WiFi.macAddress());
   loadConfig(config_data);
   strcpy(config_data_bcp.ssid,ssid);
 
   if( strcmp(config_data.ssid, config_data_bcp.ssid) == 0){
-    Serial.print("Loaded eeprom config successfully");
+    Serial.println("Loaded eeprom config successfully");
   }
   else{
     saveConfig(config_data_bcp);
-    Serial.print("No eeprom config detected, initialized new config");
+    Serial.println("No eeprom config detected, initialized new config");
   }
 }
 
