@@ -4,7 +4,7 @@
 Eikgeiger opensource project for detection of background radiation in Norway. It is developed in cooperation with Eik Ideverksted. Use the design for anything you like comercially and privately, but i would love if you fork it so i can see what it is used for.
 
 ## First Batch
-Thanks to [PCBway](www.pcbway.com) for providing assembled prototype boards for this project. Its awesome that you support the opensource community like this! If you want one for yourself, i've made a [pcbway project](https://www.pcbway.com/project/shareproject/EikGeiger_IOT_Geigercounter_60bd1e1f.html) which you can make an assembly order quite easily. 
+Thanks to [PCBway](www.pcbway.com) for providing assembled prototype units for this project. Its awesome that you support the opensource community like this! If you want one for yourself, i've made a [pcbway project](https://www.pcbway.com/project/shareproject/EikGeiger_IOT_Geigercounter_60bd1e1f.html) which you can make an assembly order quite easily. 
 
 ![REALBOT](./PICTURES/Real_bot.jpg)
 ![REALTOP](./PICTURES/Real_TOP.jpg)
