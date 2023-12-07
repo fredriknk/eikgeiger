@@ -56,7 +56,10 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        "solder_mask_bridge|171166449|105884027|2cb449ef-f71f-4ad1-a21a-b50e60eeb59b|7df02ca3-80cf-4950-bf17-929b39112675",
+        "solder_mask_bridge|78226605|79634712|1af95f4e-7a83-4306-a71b-af568871bc37|7df02ca3-80cf-4950-bf17-929b39112675"
+      ],
       "meta": {
         "version": 2
       },
@@ -97,7 +100,7 @@
         "silk_overlap": "ignore",
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
-        "starved_thermal": "error",
+        "starved_thermal": "ignore",
         "text_height": "warning",
         "text_thickness": "warning",
         "through_hole_pad_without_hole": "error",
@@ -141,7 +144,7 @@
           "td_on_pad_in_zone": false,
           "td_onpadsmd": true,
           "td_onroundshapesonly": false,
-          "td_ontrackend": false,
+          "td_ontrackend": true,
           "td_onviapad": true
         }
       ],

@@ -15,7 +15,7 @@ It uses an[ESP32-WROOM-32E](./DOCUMENTATION/esp32-wroom-32e_esp32-wroom-32ue_dat
 Thanks to the DIYgeiger radmon project for inspiration [DIYGeiger RADMON + kit](https://sites.google.com/site/diygeigercounter/home/gk-radmon).
 
 If you want to handsolder this, i really recommend to check out the awesome IBOM assembly utility (use it with a desktop as it sucks on mobile)
-[Assembly IBOM](https://htmlpreview.github.io/?https://raw.githubusercontent.com/fredriknk/eikgeiger/main/PRODUCTION/ibom.html)
+[Assembly IBOM](https://htmlpreview.github.io/?https://raw.githubusercontent.com/fredriknk/eikgeiger/main/PRODUCTION/eikgeiger-ibom.html)
 
 [SCHEMATIC](./DOCUMENTATION/Opengieger_schematic.pdf)
 ## Specifications
