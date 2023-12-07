@@ -1,8 +1,15 @@
 ﻿# EIKGEIGER
 ![Front](./PICTURES/BAKER_1946.png)
 
-Eikgeiger opensource project for detection of background radiation in Norway. It is developed in cooperation with Eik Ideverksted at NMBU. Use the design for anything you like comercially and privately, but i would love if you fork it so i can see what it is used for.
+Eikgeiger opensource project for detection of background radiation in Norway. It is developed in cooperation with Eik Ideverksted. Use the design for anything you like comercially and privately, but i would love if you fork it so i can see what it is used for.
 
+## First Batch
+Thanks to [PCBway](www.pcbway.com) for providing assembled prototype boards for this project. If you want one for yourself, i've made a [pcbway project](https://www.pcbway.com/project/shareproject/EikGeiger_IOT_Geigercounter_60bd1e1f.html) which you can make an assembly order quite easily. 
+
+![REALBOT](./PICTURES/Real_bot.jpg)
+![REALTOP](./PICTURES/Real_TOP.jpg)
+
+## Description
 It uses an[ESP32-WROOM-32E](./DOCUMENTATION/esp32-wroom-32e_esp32-wroom-32ue_datasheet_en.pdf) wifi module both communication and MCU, and is mostly based on surface mount components.
 
 Thanks to the DIYgeiger radmon project for inspiration [DIYGeiger RADMON + kit](https://sites.google.com/site/diygeigercounter/home/gk-radmon).
@@ -12,18 +19,20 @@ If you want to handsolder this, i really recommend to check out the awesome IBOM
 
 [SCHEMATIC](./DOCUMENTATION/Opengieger_schematic.pdf)
 ## Specifications
-| **Parameter**   | **Description**                                                     |
-|-----------------|---------------------------------------------------------------------|
-| _Input voltage_ | Usb-C cable, Header 4-6v, Direct 3.3v                               |
-| _Current_       | Wifi: 150-250mA, Radio Off: 44mA, Only HV psup 4mA, Deep sleep 70uA |
-| _Communication_ | 2.4ghz WIFI, Uart TTL, Uart over USB                                |
-| _Baudrate_      | 115200                                                              |
-| _PCB size_      | 31x119mm                                                            |
-| _Case size_     | 30x35x121mm                                                         |
+| **Parameter**     | **Description**                                                     |
+|-------------------|---------------------------------------------------------------------|
+| _Input voltage_   | Usb-C cable, Header 4-6v, Direct 3.3v                               |
+| _Current_         | Wifi: 150-250mA, Radio Off: 44mA, Only HV psup 4mA, Deep sleep 70uA |
+| _Communication_   | 2.4ghz WIFI, Uart TTL, Uart over USB                                |
+| _Baudrate_        | 115200                                                              |
+| _PCB size_        | 31x119mm                                                            |
+| _Case size_       | 30x35x121mm                                                         |
+| _Series Resistor_ | 4.51MOHM                                                         |
 
 ## Serial port controll comands
 
 To reconfigure device settings you need to connect the eikgeiger to a computer with a serial terminal (I reccomend to just use the [Arduino Program](https://www.arduino.cc/en/software), but any serial terminal should work)
+
 When you want to configure a value you use two characters plus a number. So to set the PWM frequency to 2000hz, you would write PF2000 in the terminal and send. Some commands need a specific number, eg to factory reset you must transmit FR9999. after you have verified that the configuraion works you use SA1 to save the config to the flash eeprom
 
 | **Characters**| **Unit**                | **Value** | **Factory Value** | **Description**                                                                                                                                                                                                                                           | **Example** |
@@ -78,15 +87,6 @@ sensor:
         value_template: "{{ state_attr('sensor.EIK_Geiger', 'data')['raw_volt'] }}"
         unit_of_measurement: "raw_voltage"
 ```
-
-## FRONT
-
-![Front](./PICTURES/TOP.PNG)
-
-## BACK
-
-![Back](./PICTURES/BOTTOM.PNG)
-
 ## BUCK BOOST CONVERTER
 ![HV SOURCE](./PICTURES/HV-SOURCE.PNG)
 
@@ -94,3 +94,16 @@ It is designed for SBM-20 GM tube integrated onto the PCB with 6.3mm fuse holder
 
 ![SBM DATASHEET](./PICTURES/SBM-20.jpg)
 
+## More Pictures
+### Renders
+
+![Front](./PICTURES/TOP.PNG)
+![Back](./PICTURES/BOTTOM.PNG)
+
+### SBM-20 Enclosure
+![SBM-20](./PICTURES/CASE_SBM20.JPEG)
+![SBM-20](./PICTURES/CASE_SBM20_OPEN.JPEG)
+
+### SBM-19 Enclosure
+![SBM-20](./PICTURES/CASE_SBM19.JPEG)
+![SBM-20](./PICTURES/CASE_SBM19_OPEN.JPEG)
