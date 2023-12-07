@@ -20,7 +20,7 @@
 #define BOOTBUTTON 12
 #define CLICKER_PWM_CHANNEL 11
 #define BUCK_PWM_CHANNEL 0
-#define CLICKER 32 //Speaker element
+#define CLICKER 33 //Speaker element
 #define REF_PIN 39 //ADC Input
 #define PULSEPIN 23 //Geiger pulse input
 #define SERVER_IP       "192.168.0.30"
